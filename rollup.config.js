@@ -63,7 +63,7 @@ export default [
         // we'll extract any component CSS out into
         // a separate file for better for performance
         css: css => {
-          css.write(path.join(outputFolder, outputName + '.css'));
+          css.write(path.join(outputName + '.css'));
         },
         preprocess: sveltePreprocess({
           postcss: true,
