@@ -1,12 +1,14 @@
 
 export interface ValueInfo {
   label: string,
-  class?: string | null,
-  color?: string | null,
+  class?: string,
+  color?: string,
+  rawRender?: boolean,
 }
 
 export interface ValueInfoLine extends ValueInfo {
   fill?: boolean;
+  line?: boolean,
 }
 
 export type ValueTick = [number, string | null];

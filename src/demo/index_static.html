@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="font-size: .7500rem;">
+<html lang="en">
 <head>
   <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1'>
@@ -12,14 +12,9 @@
 
   <script src='graphlib.js'></script>
 </head>
-<style>
-  .pancake_graph2 {
-    margin: 20px 10px 20px 40px;
-  }
 
-</style>
 <body>
-<div class="mt-4 flex flex-col md:flex-row md:h-64 justify-between text-sm font-arial mx-1 md:mx-16 md:space-x-8 space-y-4">
+<div class="mt-4 flex flex-col md:flex-row md:h-48 justify-between text-sm font-arial mx-1 md:mx-16 md:space-x-8 space-y-4">
   <div id="graph_row1_cell1" class="h-64 md:h-auto flex-auto">
     <div class="pancake_graph h-full pl-16 pt-8 pb-6 pr-4 border border-gray-300"></div>
   </div>
@@ -33,7 +28,6 @@
     <div class="pancake_graph h-full pl-16 pt-8 pb-6 pr-4 border border-gray-300"></div>
   </div>
 </div>
-
 
 <script>
 let i, randomOffset;
@@ -512,12 +506,12 @@ let graphDual = {
   ],
 
   styles: [
-    {class: 'text-gray-300'},
-    {class: 'text-orange-600', fill: false},
-    {class: 'text-blue-600', fill: false},
+    {class: 'text-gray-300', line: false, label: 'Total' },
+    {class: 'text-orange-600', fill: false, label: 'Send'},
+    {class: 'text-blue-600', fill: false, label: 'Receive'},
   ],
 
-  "xTicks": xTicksPopulate(0, 120),
+  "xTicks": xTicksPopulate(0, 240),
   "yTicks": [
     500,
     1000,
@@ -525,19 +519,21 @@ let graphDual = {
     2000,
   ].map(tick=>[tick, tick==0?'':null]),
 
-  "formatValue": formatValueBPS,
+  formatValue: (val, info)=>{
+    return formatValueBPS(val) + ' ' + info.label;
+  },
 }
-for (i=0; i < 120;i++) {
+for (i=0; i < 240;i++) {
   if (i%5==0) randomOffset=(250*Math.random())
   if (i%3==0) randomOffset+=(450*Math.random())
   graphDual.values[1][i] = 200+Math.floor(Math.random()*100+randomOffset);
 }
-for (i=0; i < 120;i++) {
+for (i=0; i < 240;i++) {
   if (i%7==0) randomOffset=(250*Math.random())
   if (i%12==0) randomOffset+=(450*Math.random())
   graphDual.values[2][i] = 200+Math.floor(Math.random()*100+randomOffset);
 }
-for (i=0; i < 120;i++) {
+for (i=0; i < 240;i++) {
   graphDual.values[0][i] = graphDual.values[1][i] + graphDual.values[2][i];
 }
 
@@ -586,7 +582,7 @@ if (1) {
       }
     }
 
-    if (offset%5==1) {
+    if (appConn && offset%5==1) {
       let tmp2 = Math.floor(Math.random()*30+1)*100;
 
       let yTicks = [
@@ -601,10 +597,9 @@ if (1) {
 
     if (appPie && offset%2==0) {
       if (offset%4==0) {
-        let pieOff = Math.floor(Math.random()*7);
         pieStylesCount = Math.floor(2+Math.random()*5);
         appPie.$set({
-          //values: [...Array(pieStylesCount).keys()].map((index)=>Math.floor(Math.random()*100+10*index)),
+          values: [...Array(pieStylesCount).keys()].map((index)=>Math.floor(Math.random()*100+10*index)),
           styles: [...pieStyles.slice(0, pieStylesCount-1), pieStyles[pieStyles.length-1]],
         })
       }

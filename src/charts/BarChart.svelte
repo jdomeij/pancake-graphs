@@ -30,11 +30,11 @@
   export let formatTick: FormatTickFunc = DefaultFormatTick;
 
   // Enforce value types
-  assertIsArray(values);
-  assertIsArray(styles);
-  assertIsNumber(xMax);
-  assertIsArray(xTicks);
-  assertIsNumber(height);
+  assertIsArray('values', values);
+  assertIsArray('styles', styles);
+  assertIsNumber('xMax', xMax);
+  assertIsArray('xTicks', xTicks);
+  assertIsNumber('height', height);
 
   // Use zero values for min values
   let xMin: number = 0;
@@ -51,18 +51,23 @@
   let dataXY: PancakePoint[];
   $: dataXY = styles.map( (_,index:number)=>({x:values[index]||0, y:index}) );
 
-  // Animate resizes
-  let dataTween: any = null;
+  // Animate changes
+  let dataAnimate: any = tweened(styles.map((_: any, i: number)=>(values[i] || 0)));
 
-  // Create new when number of slices have changed
-  $: dataTween = tweened(styles.map((_:ValueInfo, i:number): number => {
-    if ($dataTween && $dataTween[i])
-      return $dataTween[i];
-    return 0;
-  }), {duration:100});
-  
-  // Update angle value
-  $: dataTween.set(styles.map((_, i:number):number=>(values[i]||0), $dataTween[0]===0?{duration:0}:undefined ))
+  // Values or styles changed, calculate new values
+  function updateAnimation(_:any, _2:any) {
+
+    // Column count have changed, create new using old values
+    if ($dataAnimate.length != styles.length) {
+      dataAnimate = tweened(styles.map((_: any, i: number)=> ($dataAnimate[i] || 0)));
+    }
+
+    // Set new values
+    dataAnimate.set(styles.map((_: any, i: number)=>(values[i] || 0)));
+  }
+
+  $: updateAnimation(styles, values);
+
 
   // Calculate x-ticks
   let xLines: PancakePoint[][];
@@ -92,19 +97,21 @@
 </script>
 
 <Pancake.Chart x1={xMin} x2={xMaxCalc} y1={yMin} y2={yMaxCalc}>
-  <Pancake.Bars data={$dataTween} x={p=>p} y={(_,i)=>i} height={height/100} let:index>
-    <div 
-      class="barchart__bar {styles[index].class||''}"
-      class:barchart__bar--active={hoverIndex===index} 
-      style="{styles[index].color?`color: ${styles[index].color};`: ''}"
-      on:mousemove="{()=>(setHoverIndex(index))}" 
-      on:mouseout="{()=>(setHoverIndex(null))}"
-    ></div>
-  </Pancake.Bars>
+  <div class="overflow-hidden">
+    <Pancake.Bars data={$dataAnimate} x={p=>p} y={(_,i)=>i} height={height/100} let:index>
+      <div 
+        class="barchart__bar {styles[index].class||''}"
+        class:barchart__bar--active={hoverIndex===index} 
+        style="{styles[index].color?`color: ${styles[index].color};`: ''}"
+        on:mousemove="{()=>(setHoverIndex(index))}" 
+        on:mouseout="{()=>(setHoverIndex(null))}"
+      ></div>
+    </Pancake.Bars>
+  </div>
 
   <Pancake.Grid horizontal ticks={yLabels.map((_,i)=>i)} let:index>
     <span 
-      class="barchart__y-text"
+      class="barchart__y-text text-gray-700 text-xs"
       class:barchart__y-text--active={hoverIndex===index} 
       on:mousemove="{()=>(setHoverIndex(index))}" 
       on:mouseout="{()=>(setHoverIndex(null))}"
@@ -141,31 +148,32 @@
 <style type="text/postcss">
   .barchart__x-line,
   .barchart__y-line {
-    @apply text-gray-400 stroke-current stroke-1;
+    stroke: black;
+    stroke-width: 0.5;
   }
 
   .barchart__x-line {
-    @apply opacity-75;
+    opacity: .25;
     stroke-dasharray: 1;
   }
 
   .barchart__y-line {
+    opacity: .5;
     stroke-dasharray: 2;
   }
 
   .barchart__y-text,
   .barchart__x-text {
-    @apply antialiased text-gray-700 text-xs font-semibold cursor-default;
+    @apply antialiased text-gray-700 font-normal cursor-default;
   }
 
   .barchart__y-text {
     @apply w-16 text-right truncate;
-    @apply inline-block -ml-2 leading-normal; 
-    @apply transform -translate-y-full -translate-x-full;
+    @apply inline-block -ml-2 leading-5; 
+    @apply transform -translate-x-full -translate-y-full;
   }
 
   .barchart__y-text--active {
-    @apply font-bold underline;
   }
 
   .barchart__x-text {

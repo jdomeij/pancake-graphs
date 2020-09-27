@@ -4,11 +4,17 @@
   import * as Pancake from '../pancake';
   import type { PancakePoint } from '../pancake';
 
-  import { tweened } from 'svelte/motion';
+  import { spring } from 'svelte/motion';
   import Tooltip from '../components/Tooltip.svelte';
   import type {ValueInfoLine, ValueTick, FormatValueFunc, FormatTickFunc } from '../util/typedefs';
   import { DefaultFormatTick, DefaultFormatValue } from '../util/helper';
   import { assertIsArray, assertIsArrayArray, assertIsNumber } from '../util/assert';
+
+  // Extend point with original index + list index
+  interface PancakePointEx extends PancakePoint {
+    valIndex: number,
+    listIndex: number,
+  };
 
   // Line styles
   export let styles: ValueInfoLine[] = [];
@@ -40,18 +46,11 @@
   export let formatTick: FormatTickFunc = DefaultFormatTick;
 
   // Enforce value types
-  assertIsArrayArray(dataArray);
-  assertIsArray(styles);
-  assertIsNumber(yMax);
-  assertIsArray(xTicks);
-  assertIsArray(yTicks);
-
-  type PancakePointEx = {
-    x: number,
-    y: number,
-    valIndex: number,
-    listIndex: number,
-  };
+  assertIsArrayArray('dataArray', dataArray);
+  assertIsArray('styles', styles);
+  assertIsNumber('yMax', yMax);
+  assertIsArray('xTicks', xTicks);
+  assertIsArray('yTicks', yTicks);
 
   // Closest point to the mouse pointer
   let closest: PancakePointEx | null = null;
@@ -59,7 +58,7 @@
   // XY points + index
   let pointsData: PancakePointEx[][];
   $: pointsData = dataArray.map( (dataVal:any[], listIndex: number): PancakePointEx[] => {
-    assertIsArray(dataVal);
+    assertIsArray('dataArray[]', dataVal);
     return dataVal.map( (val:number, valIndex:number): PancakePointEx => ({
       x: valIndex, 
       y: val,
@@ -106,41 +105,37 @@
   $: yLinesStyle = yTicksColor? `color: ${yTicksColor};`:'';
 
   // No delay on mouse enter
-  let noTweenDelay: boolean = true;
-  const xPointTween = tweened(1, {
-    duration: 50,
-  });
-  const yPointTween = tweened(1, {
-    duration: 100,
+  let noAnimateDelay: boolean = true;
+
+  // Add tweening interpolation
+  const pointAnimate = spring([0, 0, ...styles.map(()=>0)], {
+    stiffness: 0.3,
+    //damping: 0.8,
   });
 
   // Mouse movement
-  function xLineUpdate(point: PancakePoint) {
+  $: ((point: PancakePointEx) => {
+    let duration = undefined;
+
     // Mouse leave
     if (!point) {
-      noTweenDelay = true;
+      noAnimateDelay = true;
       return;
     }
 
     // Mouse enter (no-delay)
-    if (noTweenDelay) {
-      xPointTween.set(point.x, {duration:0});
-      yPointTween.set(point.y, {duration:0});
-      noTweenDelay = false;
-      return;
+    if (noAnimateDelay) {
+      duration = {hard: true};
+      noAnimateDelay = false;
     }
 
-    // Interpolate
-    $xPointTween = point.x;
-    $yPointTween = point.y;
-  }
-
-  // Update intersection point
-  $: xLineUpdate(closest);
+    // Interpolate points
+    pointAnimate.set([point.x, point.y, ...pointsData.map(p=>p[point.valIndex]?.y||0)], duration);
+  })(closest);
 
   // Update intersection line
   let xLine: PancakePoint[] = [];
-  $: xLine = [{x:$xPointTween, y:yMin}, {x:$xPointTween, y:yMaxCalc}];
+  $: xLine = [{x:$pointAnimate[0], y:yMin}, {x:$pointAnimate[0], y:yMaxCalc}];
 
   // Limit y-value to be inside graph
   function containValueY(val: number) {
@@ -162,27 +157,33 @@
 
 
 <Pancake.Chart x1={xMin} x2={xMaxCalc} y1={yMin} y2={yMaxCalc}>
-  <Pancake.Svg>
+  <Pancake.Svg clip={true}>
+    <!-- Grid line y-axis -->
     {#each yLines as yLine}
        <Pancake.SvgLine data={yLine} let:d>
         <path style={yLinesStyle} class="linechart__y-axis__gridline" {d}></path>
       </Pancake.SvgLine>
     {/each}
 
+    <!-- Each data line -->
     {#each pointsData as points, i}
-      <Pancake.SvgLine data={points} let:d>
-        <path 
-          class="linechart__data__line {styles[i].class || ''}"
-          style='fill: none; {formatStyle(styles[i])}'
-          {d}
-        ></path>
-      </Pancake.SvgLine>
+      <!-- Data line stroke -->
+      {#if styles[i].line !== false }
+        <Pancake.SvgLine data={points} let:d>
+          <path 
+            class="linechart__data__line {styles[i].class || ''}"
+            style={formatStyle(styles[i])}
+            {d}
+          ></path>
+        </Pancake.SvgLine>
+      {/if}
 
+      <!-- Data line fill -->
       {#if styles[i].fill !== false }
         <Pancake.SvgArea data={points} let:d>
           <path 
             class="linechart__data__area {styles[i].class || ''}" 
-            style='stroke: none; {formatStyle(styles[i])}'
+            style={formatStyle(styles[i])}
             {d}
           ></path>
         </Pancake.SvgArea>
@@ -197,40 +198,46 @@
     {/if}
   </Pancake.Svg>
 
+  <!-- y-axis ticks -->
   <Pancake.Grid horizontal ticks={yTicks.map(p=>p[0])} let:index>
     <span class="linechart__y-axis__text">{formatTick(yTicks[index][0], yTicks[index][1], true)}</span>
   </Pancake.Grid>
 
+  <!-- x-axis ticks -->
   <Pancake.Grid vertical ticks={xTicks.map(p=>p[0])} let:index>
     <span class="linechart__x-axis__text">{formatTick(xTicks[index][0], xTicks[index][1], false)}</span>
   </Pancake.Grid>
 
   {#if tooltip && closest !== null}
     <!-- Tooltip rendering -->
-    <Pancake.Point x={$xPointTween} y={containValueY($yPointTween)}>
-      <Tooltip title={tooltipTitle} left={$xPointTween > xMaxCalc*.8}>
+    <Pancake.Point x={$pointAnimate[0]} y={containValueY($pointAnimate[1])}>
+      <Tooltip title={tooltipTitle} left={$pointAnimate[0] > xMaxCalc*.8}>
         {#each dataArray as _, i}
-          <div class="linechart__tooltip__row">
-            {#if dataArray.length > 1}
-              <span class="linechart__tooltip__icon {styles[i].class || ''}" style={formatStyle(styles[i])}></span>
-            {/if}
-            <span class="linechart__tooltip__value">{ formatValue((pointsData[i][closest.valIndex] ? pointsData[i][closest.valIndex].y : 0), styles[i], i) }</span>
-          </div>
+          {#if styles[i].rawRender}
+            {@html formatValue((pointsData[i][closest.valIndex] ? pointsData[i][closest.valIndex].y : 0), styles[i], i) }
+          {:else}
+            <div class="linechart__tooltip__row">
+              {#if dataArray.length > 1}
+                <span class="linechart__tooltip__icon {styles[i].class || ''}" style={formatStyle(styles[i])}></span>
+              {/if}
+              <span class="linechart__tooltip__value">{formatValue((pointsData[i][closest.valIndex] ? pointsData[i][closest.valIndex].y : 0), styles[i], i) }</span>
+            </div>
+          {/if}
         {/each}
       </Tooltip>
     </Pancake.Point>
 
     <!-- Intersection point (one for each data line) -->
     {#each dataArray as _, i}
-      <Pancake.Point x={$xPointTween} y={containValueY(pointsData[i][closest.x].y)}>
+      <Pancake.Point x={$pointAnimate[0]} y={containValueY($pointAnimate[i+2])}>
         <span class="linechart__circle {styles[i].class || ''}" style={formatStyle(styles[i])}></span>
       </Pancake.Point>
     {/each}
   {/if}
 
   {#if tooltip}
-    <!-- Set y-axis to zero to only use x-axis -->
-    <Pancake.QuadtreeNormalized data={pointsDataAll} bind:closest/>
+    <!-- Find closest point -->
+    <Pancake.Quadtree data={pointsDataAll} bind:closest/>
   {/if}
 </Pancake.Chart>
 
@@ -241,21 +248,23 @@
   }
 
   .linechart__y-axis__gridline {
-    @apply text-gray-400 stroke-current stroke-1;
+    opacity: .5;
+    stroke: gray;
     stroke-dasharray: 2;
+    stroke-width: 0.5;
   }
 
   .linechart__y-axis__text, 
   .linechart__x-axis__text {
     font-size: 9px;
-    @apply antialiased text-gray-600 font-semibold font-sans;
+    @apply antialiased text-gray-700 font-semibold font-sans;
     @apply pointer-events-none;
   }
 
 
   .linechart__y-axis__text {
     @apply absolute -ml-2; 
-    @apply transform -translate-y-full -translate-x-full;
+    @apply transform -translate-y-1/2 -translate-x-full;
 
   }
 
@@ -265,14 +274,15 @@
   }
 
   .linechart__data__line {
-    @apply stroke-current;
-    stroke-line: currentColor;
+    fill: none; 
+    stroke: currentColor;
     stroke-linejoin: round;
-    stroke-width: 1px;
+    stroke-width: 2;
   }
 
   .linechart__data__area {
     @apply fill-current opacity-25;
+    stroke: none;
   }
   
   .linechart__x-axis__line {
@@ -280,17 +290,17 @@
   }
 
   .linechart__circle {
-    @apply -mt-1 -ml-1 w-2 h-2 p-0;
+    @apply p-0;
     @apply absolute inset-0 inline-block pointer-events-none;
     @apply bg-transparent border rounded-full border-current opacity-75;
-  }
-
-  .linechart__tooltip__title {
-    @apply block font-semibold text-gray-900;
+    margin-top: -4px;
+    margin-left: -4px;
+    width: 8px;
+    height: 8px;
   }
 
   .linechart__tooltip__row {
-    @apply flex flex-row text-gray-600;
+    @apply flex flex-row text-gray-700 justify-start;
   }
 
   .linechart__tooltip__icon {

@@ -1,13 +1,12 @@
 <script lang="ts">
   import * as GraphLib from '../package.dist';
 
-  function generateData(num, yOffset, yMax) {
+  function generateData(num: number, yOffset: number, yMax: number, yFloor: number=0): number[] {
     let interval = Math.floor(Math.random()*(num/4))+1;
-    return [...Array(num).keys()].map( (v, i) => ( Math.floor((i%interval==0?(Math.random()*yOffset):0)+Math.random()*yMax)) );
+    return [...Array(num).keys()].map( (v, i) => ( Math.floor((i%interval==0?(Math.random()*yOffset):0)+Math.random()*yMax + yFloor)) );
   }
 
 </script>
-
 
 <div class="bg-gray-200 p-4 rounded mt-4 flex flex-col md:flex-row h-auto md:h-40 justify-between mx-1 md:mx-16 md:space-x-8 md:space-y-0 space-y-4">
   <div class="h-40 md:h-full flex-auto p-2">
@@ -129,6 +128,7 @@
           label: 'test3',
           class: 'text-red-500',
           fill: false,
+          rawRender: true,
         },
       ]}
       xTicks={[
@@ -146,8 +146,14 @@
         [1000,null],
       ]}
     
-      formatValue={(val) => {
-        return `${val}`;
+      formatValue={(val, info, label) => {
+        if (info.rawRender) {
+          return '<div class="flex flex-row justify-end items-center bg-gray-300">'+
+                 `<span class="inline-block">${val}</span>`+
+                 `<span class="inline-block mx-2 w-3 h-3 bg-current rounded-full border border-current ${info.class}"></span></div>`;
+                 
+        }
+        return `${val} ${info.label}`;
       }}
 
       formatTick={(val, label, yAxis) => {
@@ -229,17 +235,60 @@
   </div>
 </div>
 
+<div class="bg-gradient-to-r from-gray-700 via-blue-600 to-green-600 p-4 rounded mt-4 flex md:flex-row text-sm font-arial mx-16 space-x-8 space-y-0 h-48">
+  <div  class="h-auto w-full">
+    <GraphLib.LineChart
+      tooltipTitle={"Title"} 
+      styles={[
+        {
+          label: '(Total)',
+          class: 'text-gray-500',
+          fill: true,
+          line: false,
+        },
+        {
+          label: '(A)',
+          class: 'text-green-500',
+          fill: false,
+        },
+        {
+          label: '(B)',
+          class: 'text-blue-500',
+          fill: false,
+        }
+      ]}
+      values={ (()=>{
+          let a = generateData(240, 200, 150, 400);
+          let b = generateData(240, 300, 300, 200);
+      
+          return [
+            a.map((v, i)=>a[i] + b[i]),
+            a,
+            b
+          ];
+        })() }
+      yMax={1000}
+      formatValue={(val, info)=>{
+        return `${val.toString()} ${info.label || ''}` ;
+      }}
+    >
+    </GraphLib.LineChart>
+  </div>
+</div>
+
+
 <div class="bg-gray-300 p-4 rounded mt-4 flex flex-col md:flex-row md:h-48 justify-between items-center text-sm font-arial mx-16 space-x-0 space-y-8 md:space-x-2 md:space-y-0">
-  <div class="w-32 h-32 relative">
+  <div class="w-64 pr-32 h-32 relative">
     <GraphLib.PieChart
-      cutout={0}
-      classLegend={'h-full'}
+      lineWidth={1}
+      lineColor={'#310'}
+      classLegend={'h-full mr-32 overflow-y-hidden'}
       values={[...Array(4).keys()].map(()=>Math.floor(Math.random()*10000))}
       styles={[
-        {label: 'label10',               class: 'text-gray-500'},
-        {label: 'label11',               class: 'text-gray-600'},
-        {label: 'label12',               class: 'text-gray-700'},
-        {label: 'label13',               class: 'text-gray-800'},
+        {label: 'label10',               class: 'text-orange-500'},
+        {label: 'label11',               class: 'text-orange-600'},
+        {label: 'label12',               class: 'text-orange-700'},
+        {label: 'label13',               class: 'text-orange-800'},
       ]}
     />
   </div>
@@ -252,8 +301,10 @@
       circleTotal={25}
       circleOffset={180}
       reverseLegend={true}
-      lineColor={'currentColor'}
-      classLegend={'w-24 mr-24 h-full bg-gray-900'}
+      lineWidth={0.5}
+      lineColor={'black'}
+      
+      classLegend={'w-24 mr-24 h-full bg-gray-900 text-gray-700'}
       formatValue={(val, info, index)=>{
         return `${val} pies`;
       }}
@@ -267,21 +318,34 @@
       ].reverse()}
     />
   </div>
-  <div class="h-32 md:h-full w-64 pl-24 border border-gray-300 relative bg-blue-200 ">
+
+  <div class="md:h-full pl-36 relative bg-white p-0" style="width: 10rem;">
     <GraphLib.PieChart
-      cutout={0}
+      cutout={50}
       leftLegend={true}
-      classLegend={'w-24 ml-24 h-full bg-gray-200'}
-      lineColor={'#ccf'}
-      values={[...Array(5).keys()].map(()=>Math.floor(Math.random()*10000))}
+      classLegend={'w-36 h-full'}
+      lineColor={'#fff'}
+      lineWidth={1}
+      values={[30, 2, 2, 2, 2, 2, 2]}
       styles={[
-        {label: 'label10',               class: 'text-blue-400'},
-        {label: 'label11',               class: 'text-blue-500'},
-        {label: 'label12',               class: 'text-blue-600'},
-        {label: 'label13',               class: 'text-blue-700'},
-        {label: 'label14',               class: 'text-gray-800'},
+        {label: 'test1', color: '#BEE3F8'},
+        {label: 'boobooo', color: '#90CDF4'},
+        {label: 'svelte', color: '#63B3ED'},
+        {label: 'test123', color: '#4299E1'},
+        {label: '123test', color: '#3182CE'},
+        {label: 'value', color: '#2B6CB0'},
+        {label: 'aaa', color: '#2C5282'},
+      ].reverse()}
+      />
+      <!--
+        values={[...Array(5).keys()].map((i)=>Math.floor(Math.random()*10000+(i*1000))).reverse()}
+        {label: 'label10',               color: 'hsl(205, 41%, 45.9%)'},
+        {label: 'label11',               color: 'hsl(204.9, 39.2%, 52.9%)'},
+        {label: 'label12',               color: 'hsl(205, 38.3%, 63.1%)'},
+        {label: 'label13',               color: 'hsl(204.9, 35%, 77.1%)'},
+        {label: 'label14',               color: 'hsl(202.5, 30.8%, 94.9%)'},
       ]}
-    />
+      -->
   </div>
   <div class="h-32 md:h-full p-1 w-64 border-8 bg-teal-500 border-teal-600 rounded-full">
     <GraphLib.Pie 
@@ -304,7 +368,8 @@
     <div class="w-{size} h-{size} .flex-shrink-0">
       <GraphLib.Pie 
         cutout={index*10}
-        lineColor={'currentColor'}
+        lineWidth={0}
+        tooltip={false}
         values={[...Array(3).keys()].map(()=>Math.floor(Math.random()*10000))}
         styles={[
           {label: 'label10',               class: 'text-gray-500'},
@@ -316,19 +381,18 @@
   {/each}
   <div class="p-0 h-40 w-auto flex-grow">
     <GraphLib.Pie
-      lineColor={'currentColor'}
+      lineWidth={0}
       values={[...Array(5).keys()].map(()=>Math.floor(Math.random()*10000))}
       styles={[
-        {label: 'label10',               class: 'text-yellow-500'},
-        {label: 'label11',               class: 'text-yellow-600'},
-        {label: 'label12',               class: 'text-yellow-700'},
-        {label: 'label13',               class: 'text-yellow-800'},
-        {label: 'label14',               class: 'text-yellow-900'},
-      ]}
-    />
+        {label: 'label10',               class: 'text-blue-800'},
+        {label: 'label11',               class: 'text-blue-700'},
+        {label: 'label12',               class: 'text-blue-600'},
+        {label: 'label13',               class: 'text-blue-600'},
+        {label: 'label14',               class: 'text-blue-500'},
+      ]} 
+      />
   </div>
 </div>
-
 
 <div class="bg-gray-200 p-4 rounded mt-4 flex flex-row md:h-48 justify-between text-sm font-arial mx-16">
   <div class="w-full h-40 md:h-full pl-16 p-4">
@@ -377,3 +441,4 @@
     />
   </div>
 </div>
+

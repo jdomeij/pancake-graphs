@@ -2,14 +2,13 @@
 <script lang="ts">
   import Pie from './Pie.svelte';
   import type {ValueInfo, FormatValueFunc } from '../util/typedefs';
-  import { assertIsArray, assertIsNumber, assertIsString } from '../util/assert';
+  import { assertIsArray } from '../util/assert';
 
    // Class to add to chart
   export let classChart: string = '';
 
    // Class to add to legend
   export let classLegend: string = '';
-
   // Values
   export let values: number[] = [];
 
@@ -36,6 +35,7 @@
 
   // Pie edge color
   export let lineColor: string = undefined;
+  export let lineWidth: number = undefined;
 
   // Value formatter for tooltip
   export let formatValue: FormatValueFunc = undefined;
@@ -45,8 +45,8 @@
   export let centerY: number = undefined;
 
   // Enforce value types
-  assertIsArray(values);
-  assertIsArray(styles);
+  assertIsArray('values', values);
+  assertIsArray('styles', styles);
 
   // Current active slice
   let hoverIndex: number | null = null;
@@ -75,15 +75,14 @@
   {circleTotal}
   {circleOffset}
   {lineColor}
+  {lineWidth}
   {formatValue}
 ></Pie>
 
 <!-- Legend -->
 <div class="piechart__legend {classLegend}"
-    class:piechart__legend--normal={!reverseLegend}
     class:piechart__legend--reverse={reverseLegend}
     class:piechart__legend--left={leftLegend}
-    class:piechart__legend--right={!leftLegend}
 >
   {#each styles as style, index}
     {#if style.label}
@@ -102,32 +101,26 @@
 
 <style type="text/postcss">
   .piechart__legend {
-    @apply p-2 absolute top-0 text-sm font-semibold flex;
-    @apply overflow-hidden;
-  }
-
-  .piechart__legend--normal {
-    @apply flex-col justify-start;
-  }
-
-  .piechart__legend--reverse {
-    @apply flex-col-reverse justify-end;
-  }
-
-  .piechart__legend--left {
-    @apply left-0 top-0 transform -translate-x-full;
-  }
-
-  .piechart__legend--right {
+    @apply p-2 absolute top-0;
+    @apply flex flex-col;
+    @apply overflow-x-hidden;
     @apply right-0 top-0 transform translate-x-full;
   }
 
-  .piechart__row {
-    @apply flex px-2 leading-normal flex-row items-center text-gray-600 rounded-sm cursor-default;
+  .piechart__legend.piechart__legend--reverse {
+    @apply flex-col-reverse justify-end;
   }
 
-  .piechart__row--active {
-    @apply bg-gray-500 text-gray-800;
+  .piechart__legend.piechart__legend--left {
+    @apply left-0 top-0 transform -translate-x-full;
+  }
+
+  .piechart__row {
+    @apply flex px-2 py-1 leading-normal flex-row items-center rounded-sm cursor-default;
+  }
+
+  .piechart__row.piechart__row--active {
+    @apply bg-gray-400;
   }
 
   .piechart__icon {
