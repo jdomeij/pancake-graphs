@@ -18,7 +18,7 @@
   .tooltip {
     @apply absolute ml-4 p-1 hidden bg-white;
     @apply border border-blue-500 rounded-sm shadow;
-    @apply text-sm text-gray-700 whitespace-no-wrap font-normal;
+    @apply text-sm text-gray-700 whitespace-nowrap font-normal;
     @apply px-2 max-w-xl z-30 inline-block;
     @apply pointer-events-none;
     @apply transform -translate-y-1/2;

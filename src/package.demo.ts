@@ -1,2 +1,2 @@
 export * from './package.dist';
-export { default as Demo } from './demo/App.svelte';
+export { default as Demo } from './demo/Demo.svelte';

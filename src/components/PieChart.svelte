@@ -1,7 +1,7 @@
 <svelte:options accessors={true} />
 <script lang="ts">
   import Pie from './Pie.svelte';
-  import type {ValueInfo, FormatValueFunc } from '../util/typedefs';
+  import type {ValueInfo, FormatValueFunc } from '../../types';
   import { assertIsArray } from '../util/assert';
 
    // Class to add to chart

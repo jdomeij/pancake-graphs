@@ -1,6 +1,10 @@
-export { default as BarChart } from './charts/BarChart.svelte';
-export { default as LineChart } from './charts/LineChart.svelte';
-export { default as PieChart } from './charts/PieChart.svelte';
-export { default as Pie } from './charts/Pie.svelte';
+export { default as BarChart } from './components/BarChart.svelte';
+export { default as LineChart } from './components/LineChart.svelte';
+export { default as PieChart } from './components/PieChart.svelte';
+export { default as Pie } from './components/Pie.svelte';
 
-export type { ValueTick, ValueInfo, ValueInfoLine } from './util/typedefs';
+//export { default as Demo } from './demo/App.svelte';
+//export { default as Demo } from './demo/DemoPieChart.svelte';
+//export { default as Demo } from './demo/DemoBarChart.svelte';
+
+//export type { ValueTick, ValueInfo, ValueInfoLine } from './util/typedefs';

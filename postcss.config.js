@@ -6,7 +6,7 @@ module.exports = {
   modules: false,
   extract: true,
   plugins: [
-    require('tailwindcss')(path.join(__dirname, 'src/tailwind/tailwind.config.js')),
+    require('tailwindcss')(),
     require('autoprefixer')(),
   ]
 }

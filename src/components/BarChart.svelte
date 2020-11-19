@@ -1,11 +1,13 @@
 <svelte:options accessors={true} />
 <script lang="ts">
-  import * as Pancake from '../pancake'; 
+
+  import * as Pancake from '../pancake_lib'; 
+  
   import { tweened } from 'svelte/motion';
-  import type { PancakePoint } from '../pancake';
-  import Tooltip from '../components/Tooltip.svelte'
-  import type {ValueInfo, ValueTick, FormatValueFunc, FormatTickFunc } from '../util/typedefs';
-  import { DefaultFormatTick, DefaultFormatValue } from '../util/helper';
+  import type { PancakePoint } from '../pancake_lib';
+  import Tooltip from './Tooltip.svelte'
+  import type {ValueInfo, ValueTick, ValueLabelTick, FormatValueFunc, FormatTickFunc } from '../../types';
+  import { DefaultFormatTick, DefaultFormatValue } from '../util/default';
   import { assertIsArray, assertIsNumber } from '../util/assert';
 
   // Bar styles
@@ -19,6 +21,9 @@
 
   // x-ticks
   export let xTicks: ValueTick[] = [];
+
+  // x-ticks bar
+  export let xTicksBar: boolean = true;
 
   // Height 0-100%
   export let height: number = 75;
@@ -40,38 +45,28 @@
   let xMin: number = 0;
   let yMin = 0;
 
-  // Calculate x-max
-  let xMaxCalc: number;
-  $: xMaxCalc = Math.max.apply(null, [xMax, ...values, ...xTicks.map(p=>p[0])]);
-
   // Number of bars
-  let yMaxCalc = styles.length;
+  let yMaxCalc: number;
+  $: yMaxCalc = styles.length;
 
   // Calculate XY-points
   let dataXY: PancakePoint[];
   $: dataXY = styles.map( (_,index:number)=>({x:values[index]||0, y:index}) );
 
-  // Animate changes
-  let dataAnimate: any = tweened(styles.map((_: any, i: number)=>(values[i] || 0)));
+  // Calculate x-ticks
+  let xTicksLabels: ValueLabelTick[];
+  $: xTicksLabels = xTicks.map((item: ValueTick): ValueLabelTick => (typeof item==='number'?[item, null] : item));
 
-  // Values or styles changed, calculate new values
-  function updateAnimation(_:any, _2:any) {
+  let xMaxTicks: number;
+  $: xMaxTicks = xTicksLabels.reduce( (prev:number, p:ValueLabelTick)=>(prev > p[0]?prev:p[0]), 0) || 10;
 
-    // Column count have changed, create new using old values
-    if ($dataAnimate.length != styles.length) {
-      dataAnimate = tweened(styles.map((_: any, i: number)=> ($dataAnimate[i] || 0)));
-    }
-
-    // Set new values
-    dataAnimate.set(styles.map((_: any, i: number)=>(values[i] || 0)));
-  }
-
-  $: updateAnimation(styles, values);
-
+  // Calculate x-max
+  let xMaxCalc: number;
+  $: xMaxCalc = Math.max.apply(null, [xMax, ...values, xMaxTicks]);
 
   // Calculate x-ticks
-  let xLines: PancakePoint[][];
-  $: xLines = xTicks.map((p:ValueTick):PancakePoint[]=>{
+  let xTicksLines: PancakePoint[][];
+  $: xTicksLines = xTicksLabels.map( (p:ValueLabelTick): PancakePoint[] => {
     return [
       {x:p[0], y:yMin},
       {x:p[0], y:yMaxCalc}
@@ -85,6 +80,26 @@
     {x:xMaxCalc, y:0}
   ];
 
+  // Animate changes
+  let dataAnimate: any = tweened(styles.map((_: any, i: number)=>(values[i] || 0)));
+
+  // Values or styles changed, calculate new values
+  function updateMotion(_:any, _2:any) {
+
+    // Column count have changed, create new using old values
+    if ($dataAnimate.length != styles.length) {
+      dataAnimate = tweened(styles.map((_: any, i: number)=> ($dataAnimate[i] || 0)));
+    }
+
+    // Set new values
+    dataAnimate.set(styles.map((_: any, i: number)=>(values[i] || 0)));
+  }
+
+  // Trigger update if style or values is changes
+  $: updateMotion(styles, values);
+
+
+
   // Current hover index
   let hoverIndex: number | null = null;
   function setHoverIndex(i: number) {
@@ -92,12 +107,12 @@
   }
 
   // y-label strings
-  let yLabels: string[] = styles.map( (p:ValueInfo, i:number) :string => (formatTick(i, p.label, false)) );
-
+  let yLabels: string[];
+  $: yLabels = styles.map( (p:ValueInfo, i:number) :string => (formatTick(i, p.label, false)) );
 </script>
 
 <Pancake.Chart x1={xMin} x2={xMaxCalc} y1={yMin} y2={yMaxCalc}>
-  <div class="overflow-hidden">
+  <div class="barchart">
     <Pancake.Bars data={$dataAnimate} x={p=>p} y={(_,i)=>i} height={height/100} let:index>
       <div 
         class="barchart__bar {styles[index].class||''}"
@@ -109,29 +124,33 @@
     </Pancake.Bars>
   </div>
 
-  <Pancake.Grid horizontal ticks={yLabels.map((_,i)=>i)} let:index>
-    <span 
-      class="barchart__y-text text-gray-700 text-xs"
-      class:barchart__y-text--active={hoverIndex===index} 
-      on:mousemove="{()=>(setHoverIndex(index))}" 
-      on:mouseout="{()=>(setHoverIndex(null))}"
-    >{formatTick(index, yLabels[index], false)}</span>
-  </Pancake.Grid>
+  <div class="barchart__y">
+    <Pancake.Grid horizontal ticks={yLabels.map((_,i)=>i+(height/200))} let:index>
+      <span 
+        class="barchart__y-text text-gray-700 text-xs"
+        class:barchart__y-text--active={hoverIndex===index} 
+        on:mousemove="{()=>(setHoverIndex(index))}" 
+        on:mouseout="{()=>(setHoverIndex(null))}"
+      >{formatTick(index, yLabels[index], false)}</span>
+    </Pancake.Grid>
+  </div>
 
-  <Pancake.Grid vertical ticks={xTicks.map(p=>p[0])} let:index>
-    <span class="barchart__x-text">{formatTick(xTicks[index][0], xTicks[index][1], true)}</span>
+  <Pancake.Grid vertical ticks={xTicksLabels.map(p=>p[0])} let:index let:value>
+    <span class="barchart__x-text">{formatTick(value, xTicksLabels[index][1], true)}</span>
   </Pancake.Grid>
 
   <Pancake.Svg>
-    {#each xLines as xLine}
+    {#each xTicksLines as xLine}
       <Pancake.SvgLine data={xLine} let:d>
-        <path class="barchart__x-line" {d}></path>
+        <path class="barchart__x-axis" {d}></path>
       </Pancake.SvgLine>
     {/each}
 
-    <Pancake.SvgLine data={yLine} let:d>
-      <path class="barchart__y-line" {d}></path>
-    </Pancake.SvgLine>
+    {#if xTicksBar}
+      <Pancake.SvgLine data={yLine} let:d>
+        <path class="barchart__y-axis" {d}></path>
+      </Pancake.SvgLine>
+    {/if}
   </Pancake.Svg>
 
   {#if hoverIndex !== null}
@@ -146,19 +165,32 @@
 </Pancake.Chart>
 
 <style type="text/postcss">
-  .barchart__x-line,
-  .barchart__y-line {
-    stroke: black;
-    stroke-width: 0.5;
+  .barchart {
+    @apply overflow-hidden absolute inset-0 text-base;
   }
 
-  .barchart__x-line {
-    opacity: .25;
-    stroke-dasharray: 1;
+  .barchart__y {
+    @apply absolute inset-y-0;
   }
 
-  .barchart__y-line {
-    opacity: .5;
+  .barchart,
+  .barchart__y {
+    @apply mb-1;
+  }
+
+  .barchart__x-axis,
+  .barchart__y-axis {
+    shape-rendering: crispedges;
+    stroke: theme('colors.gray.500');
+    stroke-width: 1;
+  }
+
+  .barchart__x-axis {
+    opacity: 50%;
+    stroke-dasharray: 0.5;
+  }
+
+  .barchart__y-axis {
     stroke-dasharray: 2;
   }
 
@@ -170,7 +202,7 @@
   .barchart__y-text {
     @apply w-16 text-right truncate;
     @apply inline-block -ml-2 leading-5; 
-    @apply transform -translate-x-full -translate-y-full;
+    @apply transform -translate-x-full -translate-y-1/2;
   }
 
   .barchart__y-text--active {
@@ -179,6 +211,7 @@
   .barchart__x-text {
     @apply absolute bottom-0; 
     @apply transform -translate-x-1/2 translate-y-full;
+    font-size: 9px;
   }
 
   .linechart__tooltip__value {

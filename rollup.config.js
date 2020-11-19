@@ -22,27 +22,7 @@ const inputFile    = production ? 'src/package.dist.ts' : 'src/package.demo.ts';
 const outputFolder = production ? 'output_dist': 'output_demo';
 const outputName   = production ? 'graphlib' : 'graphlib';
 
-export default [
-  // Tailwind output
-  {
-    input: 'src/tailwind/tailwind.input.css',
-    output: {
-      sourcemap: false,
-      format: 'iife',
-      name: 'Tailwind',
-      file: path.join(outputFolder, 'delete.me'),
-    },
-    plugins: [
-      pluginPostcss({
-        extract: path.resolve(path.join(outputFolder, 'tailwind.css')),
-        modules: false,
-        config: {
-          path: 'postcss.config.js'
-        },
-      }),
-    ]
-  },
-
+let buildTargets = [
   // GraphLib
   {
 
@@ -93,11 +73,6 @@ export default [
         },
       }),
 
-
-      pluginCopy([
-        {dest: outputFolder, files: 'src/demo/index_static.html'},
-      ]),
-
       !production && pluginServe({
         contentBase: [
           path.join(__dirname, 'src/demo/'),
@@ -113,3 +88,31 @@ export default [
     ],
   }
 ];
+
+// Used on demo pages only
+if (!production) {
+  buildTargets.push(
+    // Tailwind output
+    {
+      input: 'src/demo/tailwind.input.css',
+      output: {
+        sourcemap: false,
+        format: 'iife',
+        name: 'Tailwind',
+        file: path.join(outputFolder, 'delete.me'),
+      },
+      plugins: [
+        pluginPostcss({
+          extract: path.resolve(path.join(outputFolder, 'tailwind.css')),
+          modules: false,
+          config: {
+            path: 'postcss.config.js'
+          },
+        }),
+      ]
+    }
+  )
+}
+
+
+export default buildTargets;

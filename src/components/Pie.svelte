@@ -2,12 +2,12 @@
 <script lang="ts">
   import { tweened } from 'svelte/motion';
 
-  import * as Pancake from '../pancake';
-  import type { PancakePoint } from '../pancake';
-  import Tooltip from '../components/Tooltip.svelte';
+  import * as Pancake from '../pancake_lib';
+  import type { PancakePoint } from '../pancake_lib';
+  import Tooltip from './Tooltip.svelte';
 
-  import type {ValueInfo, FormatValueFunc } from '../util/typedefs';
-  import { DefaultFormatValue } from '../util/helper';
+  import type {ValueInfo, FormatValueFunc } from '../../types';
+  import { DefaultFormatValue } from '../util/default';
   import { assertIsArray, assertIsNumber, assertIsString } from '../util/assert';
 
   // Style information for each slice
@@ -50,8 +50,8 @@
   // Value formatter for tooltip
   export let formatValue: FormatValueFunc = DefaultFormatValue;
 
-  // Percentage of circle to render (0-100)
-  export let circleTotal: number = 100;
+  // Degrees of circle to render (0-100)
+  export let circleTotal: number = 360;
 
   // Rendering offset (0-360)
   export let circleOffset: number = 0;
@@ -81,11 +81,22 @@
   let valuesTotal: number;
   $: valuesTotal = styles.reduce((sum:number, _:ValueInfo, i:number):number=>(sum + (values[i] || 0)), 0);
 
-  // Compensate when only rendering part of circle
-  let valuesTotalCircle: number;
-  $: valuesTotalCircle = (circleTotal === 100 ? valuesTotal : valuesTotal * (100/circleTotal));
+  // Percent of circle to render 
+  let circleTotalPerc: number;
+  $: circleTotalPerc = Math.max(0, Math.min(1, circleTotal/360));
 
-  // Calculate rendering info for each slice
+  // Total radian to render
+  let circleTotalRad: number;
+  $: circleTotalRad = Math.PI*2*circleTotalPerc;
+
+  // Offset (from 12 o clock) in radian to start rendering
+  let circleOffsetRad: number;
+  $: circleOffsetRad = circleOffset*Math.PI/180;
+
+  let innerRadius: number;
+  $: innerRadius = (radius*(cutout/100));
+  
+  // Calculate style info for each slice
   let styleSlices: PieStyle[];
   $: styleSlices = styles.reduce((coll:PieStyle[], _:ValueInfo, i:number): PieStyle[] => {
       let newItem = {
@@ -105,22 +116,26 @@
       return coll;
     }, []);
 
+
+
   // Calculate rendering info for each slice
   let dataSlices: PieData[];
   $: dataSlices = styles.reduce((coll:PieData[], _:ValueInfo, i:number): PieData[] => {
     let value = values[i] || 0;
     
-    // Angle to render
-    let angle = 360*(value/valuesTotalCircle);
+    let relativeSize = (value/valuesTotal);
 
     // Calculate start rendering position
-    let offset = (i > 0) ? (coll[i-1].circleEnd) : circleOffset;
+    let offset = (i > 0) ? (coll[i-1].circleEnd) : circleOffsetRad;
+
+    // Calculate label position
+    let radAngle = (relativeSize*Math.PI*2*circleTotalPerc);
 
     let newItem = {
-      labelPos: Pancake.angleToRadian(centerX, centerY, radius/1.5, offset+angle/2),
+      labelPos: Pancake.radianToXY(centerX, centerY, radius/1.5, radAngle/2 + offset),
       circleStart: offset,
-      circleEnd: offset+angle,
-      angle: angle,
+      circleEnd: offset + radAngle,
+      angle: radAngle*(180/Math.PI),
       value: value,
     };
 
@@ -134,22 +149,22 @@
   let angleMotion: any = null;
 
   // Values or styles changed, calculate new values
-  function updateAnimation(_:any, _2:any) {
+  function updateAnimation(_:PieStyle[], _2:PieData[]) {
 
     // Rendering first time
     if (!angleMotion) {
       // Set new values
-      angleMotion = tweened(styles.map((_: any, i: number)=>(dataSlices[i] ? dataSlices[i].circleEnd : 360)));
+      angleMotion = tweened([circleOffsetRad, ...styles.map((_: any, i: number)=>(dataSlices[i] ? dataSlices[i].circleEnd : circleTotalRad))]);
       return;
     }
 
     // Column count have changed, create new using old values
-    if ($angleMotion.length != styles.length) {
-      angleMotion = tweened(styles.map((_: any, i: number)=> ($angleMotion[i] || 360)));
+    if ($angleMotion.length != styles.length + 1) {
+      angleMotion = tweened([$angleMotion[0], ...styles.map((_: any, i: number)=> ($angleMotion[i+1] || circleTotalRad))]);
     }
 
     // Set new values
-    angleMotion.set(styles.map((_: any, i: number)=>(dataSlices[i] ? dataSlices[i].circleEnd : 360)));
+    angleMotion.set([circleOffsetRad, ...styles.map((_: any, i: number)=>(dataSlices[i] ? dataSlices[i].circleEnd : circleTotalRad))]);
   }
 
   // Call function when style or data is changed
@@ -186,21 +201,23 @@
       <!-- Brighten-->
       <feColorMatrix in="SourceGraphic"
           type="matrix"
-          values="1.5 0 0 0 0
-                  0 1.5 0 0 0
-                  0 0 1.5 0 0
-                  0 0 0 2 0" />
+          result="tmp"
+          values="1.2 0 0 0 0
+                  0 1.2 0 0 0
+                  0 0 1.2 0 0
+                  0 0 0 1 0" />
+      <feColorMatrix type="saturate" in="tmp" values="0.7"/>
     </filter> 
 
     <!-- Each slice -->
     {#each styleSlices as slice, index (slice.id)}
-      <Pancake.SvgPie 
+      <Pancake.SvgArc 
         x={centerX}
         y={centerY}
-        angle={index?$angleMotion[index]-$angleMotion[index-1]:$angleMotion[index]}
-        offset={index?$angleMotion[index-1]:0}
-        {radius}
-        {cutout}
+        start={ $angleMotion[index] }
+        stop={ $angleMotion[index+1] }
+        outer={radius}
+        inner={innerRadius}
         let:d
       >
         <!-- Fill style -->
@@ -221,7 +238,7 @@
             {d}
           ></path>
         {/if}
-      </Pancake.SvgPie>
+      </Pancake.SvgArc>
     {/each}
   </Pancake.Svg>
 
